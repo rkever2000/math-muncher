@@ -272,21 +272,40 @@ function clapSound() {
 function booSound() {
   initAudio();
   try {
-    if (!fartBuffer) return;
     var ctx = audioCtx;
-    var src = ctx.createBufferSource(); src.buffer = fartBuffer;
-    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 3;
-    var lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 18;
-    var lfoG = ctx.createGain(); lfoG.gain.value = 180;
-    lfo.connect(lfoG); lfoG.connect(lp.frequency);
-    var g = ctx.createGain();
-    g.gain.setValueAtTime(0.001, ctx.currentTime);
-    g.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.04);
-    g.gain.setValueAtTime(1.0, ctx.currentTime + 0.15);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
-    src.connect(lp); lp.connect(g); g.connect(ctx.destination);
-    lfo.start(); lfo.stop(ctx.currentTime + 0.9);
-    src.start(); src.stop(ctx.currentTime + 0.9);
+    var t = ctx.currentTime;
+    // Layer 1: low rumble oscillator sliding down
+    var o1 = ctx.createOscillator();
+    o1.type = 'sawtooth';
+    o1.frequency.setValueAtTime(120, t);
+    o1.frequency.exponentialRampToValueAtTime(50, t + 0.6);
+    var g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0.4, t);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+    o1.connect(g1); g1.connect(ctx.destination);
+    o1.start(t); o1.stop(t + 0.7);
+    // Layer 2: mid wobble for the "wet" quality
+    var o2 = ctx.createOscillator();
+    o2.type = 'square';
+    o2.frequency.setValueAtTime(90, t);
+    o2.frequency.exponentialRampToValueAtTime(40, t + 0.5);
+    var g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.25, t);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.start(t); o2.stop(t + 0.6);
+    // Layer 3: LFO on gain for the flapping effect
+    var o3 = ctx.createOscillator();
+    o3.type = 'sine';
+    o3.frequency.setValueAtTime(160, t);
+    o3.frequency.exponentialRampToValueAtTime(60, t + 0.5);
+    var lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 22;
+    var lfoG = ctx.createGain(); lfoG.gain.value = 0.3;
+    var g3 = ctx.createGain(); g3.gain.value = 0.3;
+    lfo.connect(lfoG); lfoG.connect(g3.gain);
+    o3.connect(g3); g3.connect(ctx.destination);
+    o3.start(t); o3.stop(t + 0.55);
+    lfo.start(t); lfo.stop(t + 0.55);
   } catch(e) {}
 }
 
