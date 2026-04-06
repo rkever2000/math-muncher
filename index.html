@@ -218,36 +218,41 @@ body { transition: background 1s ease; }
 </div>
 
 <script>
-// Audio
+// Audio — Safari-compatible
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
+let speechReady = false;
 
-// Ensure voices are loaded
-if (typeof speechSynthesis !== 'undefined') {
-  speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged = function() { speechSynthesis.getVoices(); };
+// Pre-warm speech synthesis
+function warmSpeech() {
+  if (speechReady) return;
+  speechReady = true;
+  const u = new SpeechSynthesisUtterance(' ');
+  u.volume = 0.01;
+  speechSynthesis.speak(u);
 }
 
-function ensureAudio() {
+// Pre-warm audio context — must happen inside a direct tap
+function warmAudio() {
   if (!audioCtx) audioCtx = new AudioCtx();
   if (audioCtx.state === 'suspended') audioCtx.resume();
+  warmSpeech();
 }
 
 function speak(text) {
   try {
     speechSynthesis.cancel();
-    setTimeout(function() {
-      const u = new SpeechSynthesisUtterance(text);
-      u.volume = 1; u.rate = 1; u.pitch = 1.2;
-      speechSynthesis.speak(u);
-    }, 50);
+    var u = new SpeechSynthesisUtterance(text);
+    u.volume = 1; u.rate = 1; u.pitch = 1.2;
+    speechSynthesis.speak(u);
   } catch(e) {}
 }
 
 function playTone(freq, type, dur, vol, slide) {
   try {
-    ensureAudio();
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
     if (slide) o.frequency.linearRampToValueAtTime(slide, audioCtx.currentTime + dur);
     g.gain.setValueAtTime(vol || .25, audioCtx.currentTime);
@@ -258,18 +263,19 @@ function playTone(freq, type, dur, vol, slide) {
 }
 
 function clapSound() {
+  warmAudio();
   speak('six seven, athu polichu midukki');
   playTone(660, 'sine', .12, .2);
-  setTimeout(function() { playTone(880, 'sine', .12, .18); }, 100);
-  setTimeout(function() { playTone(1100, 'sine', .15, .15); }, 200);
+  playTone(880, 'sine', .12, .18);
+  playTone(1100, 'sine', .15, .15);
 }
 function booSound() {
+  warmAudio();
   speak('onnu po penne');
   playTone(180, 'sine', .35, .25, 60);
-  setTimeout(function() { playTone(120, 'sine', .2, .2, 50); }, 150);
-  setTimeout(function() { playTone(80, 'sine', .3, .15, 40); }, 300);
+  playTone(120, 'sine', .2, .2, 50);
 }
-function levelUpSound() { [0,100,200,300,400].forEach(function(d,i) { setTimeout(function() { playTone(523+i*80, 'sine', .15, .25); }, d); }); }
+function levelUpSound() { warmAudio(); playTone(523, 'sine', .15, .25); playTone(603, 'sine', .15, .25); playTone(683, 'sine', .15, .25); playTone(763, 'sine', .15, .25); playTone(843, 'sine', .15, .25); }
 
 // Worlds
 const worlds = [
