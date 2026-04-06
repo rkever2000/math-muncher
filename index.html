@@ -218,64 +218,61 @@ body { transition: background 1s ease; }
 </div>
 
 <script>
-// Audio — Safari-compatible
+// Audio — iOS Safari compatible
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
-let speechReady = false;
 
-// Pre-warm speech synthesis
-function warmSpeech() {
-  if (speechReady) return;
-  speechReady = true;
-  const u = new SpeechSynthesisUtterance(' ');
-  u.volume = 0.01;
-  speechSynthesis.speak(u);
-}
-
-// Pre-warm audio context — must happen inside a direct tap
-function warmAudio() {
-  if (!audioCtx) audioCtx = new AudioCtx();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  warmSpeech();
+function initAudio() {
+  if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+  audioCtx = new AudioCtx();
 }
 
 function speak(text) {
   try {
-    speechSynthesis.cancel();
-    var u = new SpeechSynthesisUtterance(text);
-    u.volume = 1; u.rate = 1; u.pitch = 1.2;
-    speechSynthesis.speak(u);
+    // iOS Safari: must cancel first, then wait a tick before speaking
+    window.speechSynthesis.cancel();
+    window.setTimeout(function() {
+      var u = new window.SpeechSynthesisUtterance(text);
+      u.volume = 1; u.rate = 0.95; u.pitch = 1.1;
+      window.speechSynthesis.speak(u);
+    }, 100);
   } catch(e) {}
 }
 
-function playTone(freq, type, dur, vol, slide) {
+function playTone(freq, type, dur, vol) {
   try {
-    if (!audioCtx) return;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (!audioCtx || audioCtx.state === 'closed') return;
+    if (audioCtx.state === 'suspended') { audioCtx.resume(); }
     var o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    if (slide) o.frequency.linearRampToValueAtTime(slide, audioCtx.currentTime + dur);
-    g.gain.setValueAtTime(vol || .25, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + dur);
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || .3, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     o.connect(g); g.connect(audioCtx.destination);
-    o.start(); o.stop(audioCtx.currentTime + dur);
+    o.start(audioCtx.currentTime);
+    o.stop(audioCtx.currentTime + dur);
   } catch(e) {}
 }
 
 function clapSound() {
-  warmAudio();
+  initAudio();
   speak('sixxxx sevennnn');
-  playTone(660, 'sine', .12, .2);
-  playTone(880, 'sine', .12, .18);
-  playTone(1100, 'sine', .15, .15);
+  playTone(523, 'sine', .15, .3);
+  playTone(659, 'sine', .15, .3);
+  playTone(784, 'sine', .2, .3);
 }
 function booSound() {
-  warmAudio();
+  initAudio();
   speak('poooop');
-  playTone(180, 'sine', .35, .25, 60);
-  playTone(120, 'sine', .2, .2, 50);
+  playTone(200, 'sawtooth', .4, .2);
+  playTone(100, 'triangle', .5, .2);
 }
-function levelUpSound() { warmAudio(); playTone(523, 'sine', .15, .25); playTone(603, 'sine', .15, .25); playTone(683, 'sine', .15, .25); playTone(763, 'sine', .15, .25); playTone(843, 'sine', .15, .25); }
+function levelUpSound() {
+  initAudio();
+  [523,587,659,698,784].forEach(function(f,i) {
+    window.setTimeout(function() { playTone(f, 'sine', .2, .3); }, i * 80);
+  });
+}
 
 // Worlds
 const worlds = [
