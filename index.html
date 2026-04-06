@@ -221,36 +221,43 @@ body { transition: background 1s ease; }
 // Audio — iOS Safari compatible
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
+let fartBuffer = null;
 
 function initAudio() {
   if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
   audioCtx = new AudioCtx();
+  // Pre-generate fart buffer immediately after context created
+  try {
+    var dur = 0.9, rate = audioCtx.sampleRate;
+    fartBuffer = audioCtx.createBuffer(1, rate * dur, rate);
+    var d = fartBuffer.getChannelData(0), last = 0;
+    for (var i = 0; i < d.length; i++) {
+      var w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      d[i] = last * 3.5;
+    }
+  } catch(e) {}
 }
 
 function speak(text) {
+  // iOS Safari: speak MUST be called synchronously inside user gesture
   try {
-    // iOS Safari: must cancel first, then wait a tick before speaking
     window.speechSynthesis.cancel();
-    window.setTimeout(function() {
-      var u = new window.SpeechSynthesisUtterance(text);
-      u.volume = 1; u.rate = 0.95; u.pitch = 1.1;
-      window.speechSynthesis.speak(u);
-    }, 100);
+    var u = new SpeechSynthesisUtterance(text);
+    u.volume = 1; u.rate = 0.9; u.pitch = 1.1;
+    window.speechSynthesis.speak(u);
   } catch(e) {}
 }
 
 function playTone(freq, type, dur, vol) {
   try {
-    if (!audioCtx || audioCtx.state === 'closed') return;
-    if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+    if (!audioCtx) return;
     var o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = type;
-    o.frequency.value = freq;
+    o.type = type; o.frequency.value = freq;
     g.gain.setValueAtTime(vol || .3, audioCtx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     o.connect(g); g.connect(audioCtx.destination);
-    o.start(audioCtx.currentTime);
-    o.stop(audioCtx.currentTime + dur);
+    o.start(); o.stop(audioCtx.currentTime + dur);
   } catch(e) {}
 }
 
@@ -261,46 +268,32 @@ function clapSound() {
   playTone(659, 'sine', .15, .3);
   playTone(784, 'sine', .2, .3);
 }
+
 function booSound() {
   initAudio();
   try {
-    var duration = 0.9;
+    if (!fartBuffer) return;
     var ctx = audioCtx;
-    var rate = ctx.sampleRate;
-    var buf = ctx.createBuffer(1, rate * duration, rate);
-    var data = buf.getChannelData(0);
-    // Brown noise for that low rumble
-    var lastOut = 0;
-    for (var i = 0; i < data.length; i++) {
-      var white = Math.random() * 2 - 1;
-      lastOut = (lastOut + (0.02 * white)) / 1.02;
-      data[i] = lastOut * 3.5;
-    }
-    var src = ctx.createBufferSource();
-    src.buffer = buf;
-    // Low-pass to keep it bassy
-    var lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 3;
-    // LFO wobble (the "flap" of a fart)
-    var lfo = ctx.createOscillator();
-    lfo.type = 'sine'; lfo.frequency.value = 18;
-    var lfoGain = ctx.createGain(); lfoGain.gain.value = 180;
-    lfo.connect(lfoGain); lfoGain.connect(lp.frequency);
-    // Volume envelope: quick burst then fade
-    var gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.04);
-    gain.gain.setValueAtTime(1.0, ctx.currentTime + 0.15);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    src.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
-    lfo.start(ctx.currentTime); lfo.stop(ctx.currentTime + duration);
-    src.start(ctx.currentTime); src.stop(ctx.currentTime + duration);
+    var src = ctx.createBufferSource(); src.buffer = fartBuffer;
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 3;
+    var lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 18;
+    var lfoG = ctx.createGain(); lfoG.gain.value = 180;
+    lfo.connect(lfoG); lfoG.connect(lp.frequency);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.04);
+    g.gain.setValueAtTime(1.0, ctx.currentTime + 0.15);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+    src.connect(lp); lp.connect(g); g.connect(ctx.destination);
+    lfo.start(); lfo.stop(ctx.currentTime + 0.9);
+    src.start(); src.stop(ctx.currentTime + 0.9);
   } catch(e) {}
 }
+
 function levelUpSound() {
   initAudio();
   [523,587,659,698,784].forEach(function(f,i) {
-    window.setTimeout(function() { playTone(f, 'sine', .2, .3); }, i * 80);
+    setTimeout(function() { playTone(f, 'sine', .2, .3); }, i * 80);
   });
 }
 
@@ -356,6 +349,7 @@ function showScreen(id) {
 }
 
 function startGame() {
+  initAudio();
   state = { score: 0, lives: 3, streak: 0, level: 1, correct: 0, busy: false };
   applyWorld(1); updateHUD(); showScreen('gameScreen'); nextProblem();
 }
