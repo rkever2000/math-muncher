@@ -234,8 +234,8 @@ function playTone(freq, type, dur, vol, slide) {
   o.start(); o.stop(audioCtx.currentTime + dur);
 }
 function clapSound() {
-  const u = new SpeechSynthesisUtterance('Gayatri, well done!');
-  u.rate = 1.05; u.pitch = 1.3; u.volume = 1;
+  const u = new SpeechSynthesisUtterance('അത് പൊളിച്ചു മിടുക്കി');
+  u.lang = 'ml-IN'; u.rate = 1.05; u.pitch = 1.3; u.volume = 1;
   speechSynthesis.speak(u);
   // cheerful chime on top
   playTone(660, 'sine', .12, .2);
@@ -243,8 +243,8 @@ function clapSound() {
   setTimeout(() => playTone(1100, 'sine', .15, .15), 200);
 }
 function booSound() {
-  const u = new SpeechSynthesisUtterance('Gayatri, wrong answer, try again.');
-  u.rate = 1.05; u.pitch = 1.0; u.volume = 1;
+  const u = new SpeechSynthesisUtterance('ഒന്ന് പോ പെണ്ണേ');
+  u.lang = 'ml-IN'; u.rate = 1.05; u.pitch = 1.0; u.volume = 1;
   speechSynthesis.speak(u);
   // sad tone
   playTone(220, 'sawtooth', .5, .12, 100);
