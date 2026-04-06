@@ -138,6 +138,17 @@ body.shake { animation: screenShake .4s ease-out; }
   border-radius: 50%; animation: twinkle 2s ease-in-out infinite; }
 @keyframes twinkle { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 
+/* WORLD THEMES */
+body { transition: background 1s ease; }
+.monster-body { transition: background .8s ease, transform .3s; }
+.world-name { font-family: 'Fredoka One', cursive; font-size: 28px; color: #fff;
+  text-shadow: 2px 2px 0 rgba(0,0,0,.3); }
+.world-icon { font-size: 60px; animation: titleBounce 1.5s ease-in-out infinite; }
+.world-deco { position: fixed; pointer-events: none; z-index: 0; font-size: 30px;
+  animation: floatDeco 4s ease-in-out infinite; opacity: .6; }
+@keyframes floatDeco { 0%,100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-15px) rotate(10deg); } }
+
 /* +10 floating text */
 .plus-ten { position: absolute; font-family: 'Fredoka One', cursive; font-size: 32px;
   color: #FFD700; pointer-events: none; animation: floatUp .8s ease-out forwards; z-index: 50; }
@@ -186,8 +197,9 @@ body.shake { animation: screenShake .4s ease-out; }
 
 <!-- LEVEL UP SCREEN -->
 <div class="screen" id="levelScreen">
+  <div class="world-icon" id="worldIcon"></div>
   <h2 id="levelText">Level 2!</h2>
-  <p>Amazing job!</p>
+  <p class="world-name" id="worldName"></p>
 </div>
 
 <!-- GAME OVER SCREEN -->
@@ -260,10 +272,54 @@ function clapSound() {
 }
 function booSound() {
   speak('onnu po penne', 1.0);
-  playTone(220, 'sawtooth', .5, .12, 100);
-  setTimeout(() => playTone(260, 'sawtooth', .4, .1, 140), 200);
+  // poop splat sound
+  ensureAudio();
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * .3, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource(); src.buffer = buf;
+  const filt = audioCtx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 400; filt.Q.value = 2;
+  const g = audioCtx.createGain(); g.gain.setValueAtTime(.4, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + .3);
+  src.connect(filt); filt.connect(g); g.connect(audioCtx.destination);
+  src.start();
+  // descending wet plop
+  playTone(180, 'sine', .25, .2, 60);
+  setTimeout(() => playTone(120, 'sine', .15, .15, 50), 150);
 }
 function levelUpSound() { [0,100,200,300,400].forEach((d,i) => setTimeout(() => playTone(523+i*80, 'sine', .15, .25), d)); }
+
+// Worlds
+const worlds = [
+  { name: 'Garden World', icon: '🌻', bg: 'linear-gradient(180deg, #6C3FC5 0%, #9B59B6 40%, #2ECC71 100%)', monster: '#2ECC71', decos: ['🌸','🌼','🦋','🐝','🌿','🍀'] },
+  { name: 'Ocean World', icon: '🐳', bg: 'linear-gradient(180deg, #0B3D91 0%, #1A6FB5 40%, #48C9B0 100%)', monster: '#1ABC9C', decos: ['🐠','🐙','🦀','🐚','🌊','⭐'] },
+  { name: 'Candy World', icon: '🍭', bg: 'linear-gradient(180deg, #FF69B4 0%, #FF85C8 40%, #FFB6C1 100%)', monster: '#E74C3C', decos: ['🍬','🍩','🧁','🎂','🍪','🍫'] },
+  { name: 'Space World', icon: '🚀', bg: 'linear-gradient(180deg, #0C0C2E 0%, #1B1B4B 40%, #2C3E6B 100%)', monster: '#8E44AD', decos: ['⭐','🌙','🪐','☄️','👽','🛸'] },
+  { name: 'Dino World', icon: '🦕', bg: 'linear-gradient(180deg, #5D4037 0%, #795548 40%, #66BB6A 100%)', monster: '#F39C12', decos: ['🦖','🌋','🥚','🦎','🌴','🪨'] },
+  { name: 'Snow World', icon: '⛄', bg: 'linear-gradient(180deg, #5C6BC0 0%, #7986CB 40%, #E8EAF6 100%)', monster: '#3498DB', decos: ['❄️','🎿','⛷️','🏔️','🐧','🦌'] },
+  { name: 'Jungle World', icon: '🦁', bg: 'linear-gradient(180deg, #1B5E20 0%, #2E7D32 40%, #4CAF50 100%)', monster: '#FF9800', decos: ['🐒','🦜','🐍','🌺','🍌','🦧'] },
+  { name: 'Rainbow World', icon: '🌈', bg: 'linear-gradient(180deg, #FF0000 0%, #FF9800 17%, #FFEB3B 33%, #4CAF50 50%, #2196F3 67%, #9C27B0 83%, #E91E63 100%)', monster: '#FFD700', decos: ['🌈','✨','💎','🦄','🎪','🎠'] },
+];
+
+function getWorld(level) { return worlds[(level - 1) % worlds.length]; }
+
+function applyWorld(level) {
+  const w = getWorld(level);
+  document.body.style.background = w.bg;
+  document.querySelectorAll('.monster-body').forEach(el => el.style.background = w.monster);
+  // clear old decos
+  document.querySelectorAll('.world-deco').forEach(el => el.remove());
+  // add floating decorations
+  for (let i = 0; i < 8; i++) {
+    const d = document.createElement('div'); d.className = 'world-deco';
+    d.textContent = w.decos[Math.floor(Math.random() * w.decos.length)];
+    d.style.left = Math.random() * 90 + '%';
+    d.style.top = Math.random() * 80 + 10 + '%';
+    d.style.animationDelay = Math.random() * 3 + 's';
+    d.style.fontSize = (22 + Math.random() * 18) + 'px';
+    document.body.appendChild(d);
+  }
+}
 
 // State
 let state = { score: 0, lives: 3, streak: 0, level: 1, correct: 0, busy: false };
@@ -286,7 +342,7 @@ function showScreen(id) {
 
 function startGame() {
   state = { score: 0, lives: 3, streak: 0, level: 1, correct: 0, busy: false };
-  updateHUD(); showScreen('gameScreen'); nextProblem();
+  applyWorld(1); updateHUD(); showScreen('gameScreen'); nextProblem();
 }
 
 function updateHUD() {
@@ -388,10 +444,13 @@ function handleAnswer(val, correct, btn) {
 
 function showLevelUp() {
   levelUpSound();
+  const w = getWorld(state.level);
   document.getElementById('levelText').textContent = 'Level ' + state.level + '!';
+  document.getElementById('worldIcon').textContent = w.icon;
+  document.getElementById('worldName').textContent = 'Welcome to ' + w.name + '!';
   showScreen('levelScreen');
   spawnConfetti();
-  setTimeout(() => { showScreen('gameScreen'); nextProblem(); }, 2200);
+  setTimeout(() => { applyWorld(state.level); showScreen('gameScreen'); nextProblem(); }, 2200);
 }
 
 function spawnConfetti() {
